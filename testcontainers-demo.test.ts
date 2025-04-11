@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, test } from "vitest";
-import { StartedTestContainer } from "testcontainers";
-import { PostgreSqlContainer } from "@testcontainers/postgresql";
+import { PostgreSqlContainer, StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import * as pg from "pg";
 
 /**
@@ -11,7 +10,7 @@ import * as pg from "pg";
  */
 
 describe("testcontainers demo (suite-level persistence, NOT parallel-safe)", () => {
-  let container: any;
+  let container: StartedPostgreSqlContainer;
   let client: pg.Client;
   let startTime: number;
   let endTime: number;
