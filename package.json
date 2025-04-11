@@ -9,9 +9,11 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@testcontainers/postgresql": "^10.24.2",
     "pg": "^8.14.1",
     "pg-boss": "^10.2.0",
     "pgmock": "^1.0.3",
+    "testcontainers": "^10.24.2",
     "vitest": "^3.1.1"
   }
 }
