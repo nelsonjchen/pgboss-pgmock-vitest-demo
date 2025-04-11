@@ -1,5 +1,5 @@
 {
-  "name": "pgmock-vitest-demo",
+  "name": "node-postgres-testbench",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
