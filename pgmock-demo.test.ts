@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, test } from "vitest";
+import PgBoss from "pg-boss";
 import { PostgresMock } from "pgmock";
 import * as pg from "pg";
 
@@ -143,6 +144,40 @@ describe("pgmock demo (test-level isolation, parallel-safe)", () => {
   test.concurrent("concurrent: users table does not exist in another test", async () => {
     await withMockClient(async (client) => {
       let errorCaught = false;
+
+describe("pg-boss with pgmock integration", () => {
+  async function withMockClientAndBoss(fn: (boss: PgBoss) => Promise<void>) {
+    const mock = await PostgresMock.create();
+    const config = mock.getNodePostgresConfig();
+    // pg-boss expects a connection string, so we build one
+    // pgmock config does not provide a database name, so we use 'postgres'
+    const connectionString = `postgresql://${config.user}:${config.password}@${config.host}:${config.port}/postgres`;
+    const boss = new PgBoss({ connectionString });
+    try {
+      await boss.start();
+      await fn(boss);
+    } finally {
+      await boss.stop();
+      mock.destroy();
+    }
+  }
+
+  it("should enqueue and fetch a job", async () => {
+    await withMockClientAndBoss(async (boss) => {
+      const jobId = await boss.send("demo-job", { hello: "world" });
+      expect(jobId).toBeTruthy();
+      const jobs = await boss.fetch("demo-job");
+      // If pg-boss works, we should get our job back
+      expect(jobs).toBeTruthy();
+      expect(Array.isArray(jobs)).toBe(true);
+      expect(jobs.length).toBeGreaterThan(0);
+      const job = jobs[0];
+      expect(job.data).toEqual({ hello: "world" });
+      // Complete the job (id, data, and state are required)
+      await boss.complete("demo-job", job.id);
+    });
+  }, 20000);
+});
       try {
         await client.query("SELECT * FROM users");
       } catch (err: any) {

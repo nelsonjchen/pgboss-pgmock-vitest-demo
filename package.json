@@ -10,6 +10,7 @@
   "description": "",
   "devDependencies": {
     "pg": "^8.14.1",
+    "pg-boss": "^10.2.0",
     "pgmock": "^1.0.3",
     "vitest": "^3.1.1"
   }
