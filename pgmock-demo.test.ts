@@ -1,8 +1,15 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, test } from "vitest";
 import { PostgresMock } from "pgmock";
 import * as pg from "pg";
 
-describe("pgmock demo (suite-level persistence)", () => {
+/**
+ * WARNING: Suite-level persistence (sharing a single PostgresMock instance across tests)
+ * is NOT safe for parallel test execution. Tests may interfere with each other,
+ * causing race conditions and flaky results. For parallel-safe tests, always use
+ * a fresh PostgresMock instance per test.
+ */
+
+describe("pgmock demo (suite-level persistence, NOT parallel-safe)", () => {
   let mock: PostgresMock;
   let client: pg.Client;
 
@@ -62,7 +69,7 @@ describe("pgmock demo (suite-level persistence)", () => {
   });
 });
 
-describe("pgmock demo (test-level isolation)", () => {
+describe("pgmock demo (test-level isolation, parallel-safe)", () => {
   async function withMockClient(fn: (client: pg.Client) => Promise<void>) {
     const mock = await PostgresMock.create();
     const client = new pg.Client(mock.getNodePostgresConfig());
@@ -90,7 +97,6 @@ describe("pgmock demo (test-level isolation)", () => {
 
   it("should create table and see data only in this test", async () => {
     await withMockClient(async (client) => {
-      console.log("about to create table");
       await client.query(`
         CREATE TABLE users (
           id INT PRIMARY KEY,
@@ -98,16 +104,43 @@ describe("pgmock demo (test-level isolation)", () => {
           age INT
         )
       `);
-      console.log("table created");
       await client.query(`INSERT INTO users (id, name, age) VALUES (1, 'Alice', 30)`);
-      console.log("inserted Alice");
       const allUsers = await client.query("SELECT * FROM users");
-      console.log("queried users", allUsers.rows);
       expect(allUsers.rows.length).toBe(1);
     });
   }, 20000);
 
   it("should not have users table in a new test (fresh mock)", async () => {
+    await withMockClient(async (client) => {
+      let errorCaught = false;
+      try {
+        await client.query("SELECT * FROM users");
+      } catch (err: any) {
+        errorCaught = true;
+        expect(err.message).toMatch(/relation.*does not exist/i);
+      }
+      expect(errorCaught).toBe(true);
+    });
+  });
+
+  // Demonstrate parallel/concurrent test safety
+  test.concurrent("concurrent: create and query users table", async () => {
+    await withMockClient(async (client) => {
+      await client.query(`
+        CREATE TABLE users (
+          id INT PRIMARY KEY,
+          name TEXT NOT NULL,
+          age INT
+        )
+      `);
+      await client.query(`INSERT INTO users (id, name, age) VALUES (1, 'Concurrent', 99)`);
+      const allUsers = await client.query("SELECT * FROM users");
+      expect(allUsers.rows.length).toBe(1);
+      expect(allUsers.rows[0].name).toBe('Concurrent');
+    });
+  }, 20000);
+
+  test.concurrent("concurrent: users table does not exist in another test", async () => {
     await withMockClient(async (client) => {
       let errorCaught = false;
       try {
