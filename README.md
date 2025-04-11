@@ -1,4 +1,4 @@
-# pgmock vitest demo
+# pgboss pgmock vitest demo
 
 This is a demo of using pgmock with vitest.
 
